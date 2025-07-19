@@ -38,7 +38,7 @@ export default function EmailTemplate({
     );
   }
 
-  // ✅ ADD THIS FOR BUDGET ALERTS
+  //  ADD THIS FOR BUDGET ALERTS
   if (type === "budget-alert") {
     return (
       <Html>

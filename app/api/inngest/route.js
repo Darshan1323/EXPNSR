@@ -7,7 +7,7 @@ import {
   generateMonthlyReports,
 } from "@/lib/inngest/functions";
 
-// ✅ Export the HTTP methods for the API route
+//  Export the HTTP methods for the API route
 export const { GET, POST, PUT } = serve({
   client: inngest,
   functions: [

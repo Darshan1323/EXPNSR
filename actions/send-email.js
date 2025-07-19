@@ -4,7 +4,7 @@ export async function sendEmail({ to, subject, react }) {
   const resend = new Resend(process.env.RESEND_API_KEY || "");
 
   try {
-    // ✅ Dynamically import only when used
+    // Dynamically import only when used
     const { renderToStaticMarkup } = await import("react-dom/server");
     const html = renderToStaticMarkup(react);
 
