@@ -1,0 +1,5 @@
+{
+  "sdk": {
+    "handler": "app/api/inngest/route.js"
+  }
+}
