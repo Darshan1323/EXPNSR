@@ -42,7 +42,7 @@ function arrayBufferToBase64(buffer) {
 }
 
 export async function createTransaction(rawData) {
-  const { userId } = await auth();
+  const { userId } = await getAuth();
 const user = await db.user.findUnique({ where: { clerkUserId: userId } });
 
   try {
