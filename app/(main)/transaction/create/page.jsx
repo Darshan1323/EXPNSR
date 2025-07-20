@@ -23,9 +23,9 @@ let initialData = null;
 let lastTransaction = null;
 
 if (editId) {
-  console.log("💡 editId present:", editId); // ✅ Add this
+
   initialData = await getTransaction(editId);
-  console.log("🧩 initialData returned:", initialData); // ✅ Add this too
+
   if (!initialData) redirect("/not-found");
 }
  else {

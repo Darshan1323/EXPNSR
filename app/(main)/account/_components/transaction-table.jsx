@@ -200,12 +200,10 @@ export function TransactionTable({ transactions }) {
   };
 
 
-
-
   return (
     <div className="space-y-4">
       {isPending && (
-        <BarLoader className="mt-2" color="#9333ea" />
+        <BarLoader className="mt-2 w-full" color="#9333ea" />
       )}
       {deleteLoading && (
         <BarLoader className="mt-4" width={"100%"} color="#9333ea" />

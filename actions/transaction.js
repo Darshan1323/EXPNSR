@@ -3,7 +3,7 @@
 
 import { db } from "@/lib/prisma";
 import { cookies } from "next/headers";
-import { auth as getAuth } from "@clerk/nextjs/server";
+import { auth, auth as getAuth } from "@clerk/nextjs/server";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { revalidatePath } from "next/cache";
 import { transactionSchema } from "@/lib/schema";
@@ -44,7 +44,7 @@ function arrayBufferToBase64(buffer) {
 export async function createTransaction(rawData) {
   const { userId } = await auth();
 const user = await db.user.findUnique({ where: { clerkUserId: userId } });
-console.log("User DB ID:", user.id);
+
   try {
     cookies().getAll(); // touch cookies to ensure dynamic behavior
 
@@ -138,7 +138,7 @@ export async function updateTransaction(data) {
 
 
 export async function getTransaction(id) {
-  console.log("📌 getTransaction called with ID:", id); // ✅ Add this
+
 
   const { userId: clerkUserId } = await auth();
   if (!clerkUserId) throw new Error("Unauthorized");
@@ -151,16 +151,18 @@ export async function getTransaction(id) {
   });
 
   if (!tx) {
-    console.log("⚠ Transaction not found for id:", id, "and userId:", user.id);
+
     return null;
   }
 
-  console.log("✅ Found transaction:", tx); // ✅ Add this
 
-  return {
-    ...serializeTransaction(tx),
-    category: tx.category || "other-expense",
-  };
+return {
+  ...serializeTransaction(tx),
+  category: tx.category ?? "other-expense",
+  categoryLabel:
+    defaultCategories.find((c) => c.id === tx.category)?.name ?? "Other",
+};
+
 }
 
 
