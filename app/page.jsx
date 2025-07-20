@@ -79,7 +79,7 @@ export default function Home() {
                       src={testimonial.image}
                       alt={testimonial.name}
                       width={40}
-                      height={40}
+                      height={30}
                       className="rounded-full"
                     />
                     <div className="ml-4">
