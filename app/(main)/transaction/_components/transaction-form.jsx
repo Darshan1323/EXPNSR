@@ -33,6 +33,8 @@ import { ReceiptScanner } from "./receipt-scanner";
 
 import { CalendarHeartIcon, Loader2 } from "lucide-react";
 
+
+
 export function AddTransactionForm({
   accounts,
   categories,
@@ -80,8 +82,16 @@ export function AddTransactionForm({
       label: c.name,
     })), [categories]);
 
+  // 🔔 Show toast when editing a transaction
   useEffect(() => {
     if (editMode && initialData) {
+      toast.info("Editing transaction");
+    }
+  }, [editMode, initialData]);
+
+  useEffect(() => {
+    if (editMode && initialData) {
+          console.log("⛳ Resetting form with:", initialData);
       const matchedCategory = categories.find(
         (c) => c.name === initialData.category || c.id === initialData.category
       );
@@ -126,7 +136,12 @@ export function AddTransactionForm({
         : await createTransaction(payload);
 
       if (result.success) {
-        toast.success(editMode ? "Transaction updated!" : "Transaction created!");
+        // ✅ Show success toast based on mode
+        if (editMode) {
+          toast.success("Transaction edited successfully!");
+        } else {
+          toast.success("Transaction created!");
+        }
         router.push("/dashboard");
       } else {
         toast.error("Something went wrong");
@@ -164,6 +179,7 @@ export function AddTransactionForm({
 
   return (
     <form className="space-y-6 w-full max-w-2xl mx-auto px-4" onSubmit={handleSubmit(onSubmit)}>
+          {loading && <BarLoader color="#9333ea" className="w-full mb-4" />}
       {!editMode && <ReceiptScanner onScanComplete={handleScanComplete} />}
 
       <pre className="text-red-500 text-xs whitespace-pre-wrap">
@@ -174,7 +190,7 @@ export function AddTransactionForm({
         ))}
       </pre>
 
-      {/* Type */}
+      {/* Transaction type */}
       <div className="space-y-2 w-full">
         <label className="text-sm font-medium">Type</label>
         <Controller
@@ -281,7 +297,7 @@ export function AddTransactionForm({
         <Input placeholder="Enter description" className="w-full" {...register("description")} />
       </div>
 
-      {/* Recurring Toggle */}
+      {/* Recurring Switch */}
       <div className="flex items-center justify-between rounded-lg border p-3 w-full">
         <div className="space-y-1">
           <label className="text-sm font-medium">Recurring Transaction</label>
@@ -319,26 +335,24 @@ export function AddTransactionForm({
       )}
 
       {/* Submit Buttons */}
-<div className="grid grid-cols-2 gap-4 w-full">
-
-  <Button
-    type="button"
-    variant="outline"
-    className="w-full"
-    onClick={() => router.back()}
-  >
-    Cancel
-  </Button>
-  <Button type="submit" className="w-full" disabled={loading}>
-    {loading ? (
-      <>
-        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-        {editMode ? "Updating..." : "Creating..."}
-      </>
-    ) : editMode ? "Update Transaction" : "Create Transaction"}
-  </Button>
-</div>
-
+      <div className="grid grid-cols-2 gap-4 w-full">
+        <Button
+          type="button"
+          variant="outline"
+          className="w-full"
+          onClick={() => router.back()}
+        >
+          Cancel
+        </Button>
+        <Button type="submit" className="w-full" disabled={loading}>
+          {loading ? (
+            <>
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              {editMode ? "Updating..." : "Creating..."}
+            </>
+          ) : editMode ? "Update Transaction" : "Create Transaction"}
+        </Button>
+      </div>
     </form>
   );
 }

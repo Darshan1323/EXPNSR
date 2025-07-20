@@ -19,14 +19,19 @@ export default async function AddTransactionPage() {
   const accounts = await getUserAccounts();
   const categories = defaultCategories;
 
-  let initialData = null;
+let initialData = null;
+let lastTransaction = null;
 
-  if (editId) {
-    initialData = await getTransaction(editId);
-    if (!initialData) redirect("/not-found");
-  } else {
-    initialData = await getLastTransaction();
-  }
+if (editId) {
+  console.log("💡 editId present:", editId); // ✅ Add this
+  initialData = await getTransaction(editId);
+  console.log("🧩 initialData returned:", initialData); // ✅ Add this too
+  if (!initialData) redirect("/not-found");
+}
+ else {
+  lastTransaction = await getLastTransaction();
+}
+
 
   return (
      <div className="max-w-4xl mx-auto px-6 lg:px-12">
@@ -36,12 +41,15 @@ export default async function AddTransactionPage() {
       </h1>
     </div>
 
-    <AddTransactionForm
-      accounts={accounts}
-      categories={categories}
-      editMode={!!editId}
-      initialData={initialData}
-    />
+<AddTransactionForm
+  key={initialData?.id || "create"} // force form re-mount on edit
+  accounts={accounts}
+  categories={categories}
+  editMode={!!editId}
+  initialData={initialData}
+  lastTransaction={lastTransaction}
+/>
+
   </div>
   );
 }

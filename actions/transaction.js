@@ -42,6 +42,9 @@ function arrayBufferToBase64(buffer) {
 }
 
 export async function createTransaction(rawData) {
+  const { userId } = await auth();
+const user = await db.user.findUnique({ where: { clerkUserId: userId } });
+console.log("User DB ID:", user.id);
   try {
     cookies().getAll(); // touch cookies to ensure dynamic behavior
 
@@ -110,11 +113,12 @@ export async function updateTransaction(data) {
     const updatedTransaction = await tx.transaction.update({
       where: { id: data.id, userId: user.id },
       data: {
-        ...data,
-        nextRecurringDate: data.isRecurring && data.recurringInterval
-          ? calculateNextRecurringDate(data.date, data.recurringInterval)
-          : null,
-      },
+  ...data,
+  RecurringInterval: data.isRecurring ? data.recurringInterval : null,
+  nextRecurringDate: data.isRecurring && data.recurringInterval
+    ? calculateNextRecurringDate(data.date, data.recurringInterval)
+    : null,
+},
     });
 
     await tx.account.update({
@@ -131,18 +135,36 @@ export async function updateTransaction(data) {
   return { success: true, data: serializeTransaction(updated) };
 }
 
-export async function getTransaction(id) {
-  const { userId } = await getAuth();
-  if (!userId) throw new Error("Unauthorized");
 
-  const user = await db.user.findUnique({ where: { clerkUserId: userId } });
+
+export async function getTransaction(id) {
+  console.log("📌 getTransaction called with ID:", id); // ✅ Add this
+
+  const { userId: clerkUserId } = await auth();
+  if (!clerkUserId) throw new Error("Unauthorized");
+
+  const user = await db.user.findUnique({ where: { clerkUserId } });
   if (!user) throw new Error("User not found");
 
-  const tx = await db.transaction.findUnique({ where: { id, userId: user.id } });
-  if (!tx) throw new Error("Transaction not found");
+  const tx = await db.transaction.findFirst({
+    where: { id, userId: user.id },
+  });
 
-  return { ...serializeTransaction(tx), category: tx.category || "other-expense" };
+  if (!tx) {
+    console.log("⚠ Transaction not found for id:", id, "and userId:", user.id);
+    return null;
+  }
+
+  console.log("✅ Found transaction:", tx); // ✅ Add this
+
+  return {
+    ...serializeTransaction(tx),
+    category: tx.category || "other-expense",
+  };
 }
+
+
+
 
 export async function getLastTransaction() {
   const { userId } = await getAuth();

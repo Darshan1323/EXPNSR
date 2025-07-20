@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
+import { useTransition } from "react";
 import {
   ChevronDown,
   ChevronUp,
@@ -65,6 +66,7 @@ const RECURRING_INTERVALS = {
 };
 
 export function TransactionTable({ transactions }) {
+  const [isPending, startTransition] = useTransition();
   const [selectedIds, setSelectedIds] = useState([]);
   const [sortConfig, setSortConfig] = useState({
     field: "date",
@@ -197,8 +199,14 @@ export function TransactionTable({ transactions }) {
     setSelectedIds([]); // Clear selections on page change
   };
 
+
+
+
   return (
     <div className="space-y-4">
+      {isPending && (
+        <BarLoader className="mt-2" color="#9333ea" />
+      )}
       {deleteLoading && (
         <BarLoader className="mt-4" width={"100%"} color="#9333ea" />
       )}
@@ -393,7 +401,7 @@ export function TransactionTable({ transactions }) {
                               <RefreshCw className="h-3 w-3" />
                               {
                                 RECURRING_INTERVALS[
-                                  transaction.RecurringInterval
+                                transaction.RecurringInterval
                                 ]
                               }
                             </Badge>
@@ -427,11 +435,12 @@ export function TransactionTable({ transactions }) {
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
                         <DropdownMenuItem
-                          onClick={() =>
-                            router.push(
-                              `/transaction/create?edit=${transaction.id}`
-                            )
-                          }
+                          onClick={() => {
+                            startTransition(() => {
+                              router.push(`/transaction/create?edit=${transaction.id}`);
+                            });
+                          }}
+
                         >
                           Edit
                         </DropdownMenuItem>
