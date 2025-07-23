@@ -1,225 +1,172 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { useForm, Controller } from "react-hook-form";
-import { useRouter } from "next/navigation";
+import { useCallback, useEffect } from "react";
+import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { CalendarIcon, Loader2 } from "lucide-react";
 import { format } from "date-fns";
+import { useRouter, useSearchParams } from "next/navigation";
+import useFetch from "@/hooks/use-fetch";
 import { toast } from "sonner";
-
-import { createTransaction, updateTransaction } from "@/actions/transaction";
-import { transactionSchema } from "@/lib/schema";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Calendar } from "@/components/ui/calendar";
 import { Switch } from "@/components/ui/switch";
-import { BarLoader } from "react-spinners";
-
 import {
   Select,
-  SelectTrigger,
-  SelectValue,
   SelectContent,
   SelectItem,
+  SelectTrigger,
+  SelectValue,
 } from "@/components/ui/select";
-
 import {
   Popover,
-  PopoverTrigger,
   PopoverContent,
+  PopoverTrigger,
 } from "@/components/ui/popover";
-
-import CreateAccountDrawer from "@/components/create-account-drawer";
-import { ReceiptScanner } from "./receipt-scanner";
-
-import { CalendarHeartIcon, Loader2 } from "lucide-react";
+import { Calendar } from "@/components/ui/calendar";
+import { CreateAccountDrawer } from "@/components/create-account-drawer";
+import { cn } from "@/lib/utils";
+import { createTransaction, updateTransaction } from "@/actions/transaction";
+import { transactionSchema } from "@/lib/schema";
+import { ReceiptScanner } from "@/app/(main)/transaction/_components/receipt-scanner";
 
 export function AddTransactionForm({
   accounts,
   categories,
   editMode = false,
   initialData = null,
-  lastTransaction = null,
 }) {
   const router = useRouter();
-  const [loading, setLoading] = useState(false);
-  const [hasScanned, setHasScanned] = useState(false);
+  const searchParams = useSearchParams();
+  const editId = searchParams.get("edit");
 
   const {
     register,
     handleSubmit,
-    control,
-    reset,
-    setValue,
-    watch,
     formState: { errors },
+    watch,
+    setValue,
+    reset,
   } = useForm({
     resolver: zodResolver(transactionSchema),
-    defaultValues: {
-      type: "EXPENSE",
-      amount: "",
-      description: "",
-      accountId: accounts.find((a) => a.isDefault)?.id || "",
-      category: "",
-      date: new Date(),
-      isRecurring: false,
-      recurringInterval: undefined,
-    },
+    defaultValues:
+      editMode && initialData
+        ? {
+            type: initialData.type,
+            amount: initialData.amount.toString(),
+            description: initialData.description,
+            accountId: initialData.accountId,
+            category: initialData.category,
+            date: new Date(initialData.date),
+            isRecurring: initialData.isRecurring,
+            ...(initialData.recurringInterval && {
+              recurringInterval: initialData.recurringInterval,
+            }),
+          }
+        : {
+            type: "EXPENSE",
+            amount: "",
+            description: "",
+            accountId: accounts.find((ac) => ac.isDefault)?.id,
+            date: new Date(),
+            isRecurring: false,
+          },
   });
 
-  const watchedIsRecurring = watch("isRecurring");
-  const watchedDate = watch("date");
-  const watchedCategory = watch("category");
+  const {
+    loading: transactionLoading,
+    fn: transactionFn,
+    data: transactionResult,
+  } = useFetch(editMode ? updateTransaction : createTransaction);
 
-  const accountOptions = useMemo(
-    () =>
-      accounts.map((a) => ({
-        id: a.id,
-        label: `${a.name} ($${parseFloat(a.balance).toFixed(2)})`,
-      })),
-    [accounts]
-  );
+  const onSubmit = (data) => {
+    const formData = {
+      ...data,
+      amount: parseFloat(data.amount),
+    };
 
-  const categoryOptions = useMemo(
-    () => categories.map((c) => ({ id: c.id, label: c.name })),
-    [categories]
-  );
-
-  // 🧠 Reset form if editing or copying
-useEffect(() => {
-  if (editMode && initialData) {
-
-    const matchedCategory = categories.find(
-      (c) =>
-        c.id === initialData.category ||
-        (initialData.category &&
-          c.name.toLowerCase() === initialData.category.toLowerCase())
-    );
-
-    reset({
-      type: initialData.type ?? "EXPENSE",
-      amount: initialData.amount?.toString() ?? "",
-      description: initialData.description ?? "",
-      accountId: initialData.accountId ?? "",
-      category: matchedCategory?.id ?? "",
-      date: initialData.date ? new Date(initialData.date) : new Date(),
-      isRecurring: initialData.isRecurring ?? false,
-      recurringInterval: initialData.recurringInterval ?? undefined,
-    });
-  } else if (!editMode && lastTransaction) {
-    const matchedCategory = categories.find(
-      (c) =>
-        c.id === lastTransaction.category ||
-        (lastTransaction.category &&
-          c.name.toLowerCase() === lastTransaction.category.toLowerCase())
-    );
-
-    reset({
-      type: lastTransaction.type ?? "EXPENSE",
-      amount: lastTransaction.amount?.toString() ?? "",
-      description: lastTransaction.description ?? "",
-      accountId: lastTransaction.accountId ?? "",
-      category: matchedCategory?.id ?? "",
-      date: new Date(), // fresh date for new transaction
-      isRecurring: false,
-      recurringInterval: undefined,
-    });
-  }
-}, [editMode, initialData, lastTransaction, categories, reset]);
-
-
-
-
-  const onSubmit = async (data) => {
-    try {
-      setLoading(true);
-      const payload = {
-        ...data,
-        amount: parseFloat(data.amount),
-        recurringInterval:
-          data.isRecurring && data.recurringInterval !== ""
-            ? data.recurringInterval
-            : undefined,
-      };
-
-      const result = editMode
-        ? await updateTransaction({ id: initialData.id, ...payload })
-        : await createTransaction(payload);
-
-      if (result.success) {
-        toast.success(editMode ? "Transaction edited!" : "Transaction created!");
-        router.push("/dashboard");
-      } else {
-        toast.error("Something went wrong");
-        console.error(result.errors);
-      }
-    } catch (err) {
-      toast.error("Failed to save transaction");
-      console.error("Submit error:", err?.message || err);
-    } finally {
-      setLoading(false);
+    if (editMode) {
+      transactionFn(editId, formData);
+    } else {
+      transactionFn(formData);
     }
   };
 
-  const handleScanComplete = (scannedData) => {
-    if (!scannedData || loading || hasScanned) return;
-    setHasScanned(true);
+const handleScanComplete = (scannedData) => {
+  if (scannedData) {
+    if (scannedData.amount) {
+      setValue("amount", scannedData.amount.toString());
+    }
 
-    setValue("amount", scannedData.amount?.toString() || "");
-    setValue("date", new Date(scannedData.date));
-    if (scannedData.description)
+    if (scannedData.date) {
+      setValue("date", new Date(scannedData.date));
+    }
+
+    if (scannedData.description) {
       setValue("description", scannedData.description);
+    }
 
     if (scannedData.category) {
       const matched = categories.find(
         (c) => c.name.toLowerCase() === scannedData.category.toLowerCase()
       );
-      if (matched) setValue("category", matched.id);
+      if (matched) {
+        setValue("category", matched.id);
+      }
     }
 
-    toast.success("Receipt scanned. You can now submit the form.");
-  };
+    toast.success("Receipt scanned successfully");
+  }
+};
 
-  useEffect(() => setHasScanned(false), [editMode, initialData, lastTransaction]);
+
+
+  useEffect(() => {
+    if (transactionResult?.success && !transactionLoading) {
+      toast.success(
+        editMode
+          ? "Transaction updated successfully"
+          : "Transaction created successfully"
+      );
+      reset();
+      router.push(`/account/${transactionResult.data.accountId}`);
+    }
+  }, [transactionResult, transactionLoading, editMode]);
+
+  const type = watch("type");
+  const isRecurring = watch("isRecurring");
+  const date = watch("date");
+
+  const filteredCategories = categories.filter(
+    (category) => category.type === type
+  );
 
   return (
-    <form
-      className="space-y-6 w-full max-w-2xl mx-auto px-4"
-      onSubmit={handleSubmit(onSubmit)}
-    >
-      {loading && <BarLoader color="#9333ea" className="w-full mb-4" />}
+    <form onSubmit={handleSubmit(onSubmit)} className="space-y-6 w-full">
       {!editMode && <ReceiptScanner onScanComplete={handleScanComplete} />}
-
-      <pre className="text-red-500 text-xs whitespace-pre-wrap">
-        {Object.entries(errors).map(([key, val]) => (
-          <div key={key}>
-            {key}: {val?.message}
-          </div>
-        ))}
-      </pre>
 
       {/* Type */}
       <div className="space-y-2 w-full">
         <label className="text-sm font-medium">Type</label>
-        <Controller
-          name="type"
-          control={control}
-          render={({ field }) => (
-            <Select value={field.value} onValueChange={field.onChange}>
-              <SelectTrigger className="w-full">
-                <SelectValue placeholder="Select type" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="EXPENSE">Expense</SelectItem>
-                <SelectItem value="INCOME">Income</SelectItem>
-              </SelectContent>
-            </Select>
-          )}
-        />
+        <Select
+          onValueChange={(value) => setValue("type", value)}
+          value={type}
+        >
+          <SelectTrigger className="w-full">
+            <SelectValue placeholder="Select type" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="EXPENSE">Expense</SelectItem>
+            <SelectItem value="INCOME">Income</SelectItem>
+          </SelectContent>
+        </Select>
+        {errors.type && (
+          <p className="text-sm text-red-500">{errors.type.message}</p>
+        )}
       </div>
 
-      {/* Amount & Account */}
+      {/* Amount and Account */}
       <div className="grid gap-6 md:grid-cols-2 w-full">
         <div className="space-y-2 w-full">
           <label className="text-sm font-medium">Amount</label>
@@ -230,68 +177,63 @@ useEffect(() => {
             className="w-full"
             {...register("amount")}
           />
+          {errors.amount && (
+            <p className="text-sm text-red-500">{errors.amount.message}</p>
+          )}
         </div>
 
         <div className="space-y-2 w-full">
           <label className="text-sm font-medium">Account</label>
-          <Controller
-            name="accountId"
-            control={control}
-            render={({ field }) => (
-              <Select value={field.value} onValueChange={field.onChange}>
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Select account" />
-                </SelectTrigger>
-                <SelectContent>
-                  {accountOptions.map((account) => (
-                    <SelectItem key={account.id} value={account.id}>
-                      {account.label}
-                    </SelectItem>
-                  ))}
-                  <div className="p-2 border-t">
-                    <CreateAccountDrawer>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        className="w-full justify-start text-sm"
-                      >
-                        + Create Account
-                      </Button>
-                    </CreateAccountDrawer>
-                  </div>
-                </SelectContent>
-              </Select>
-            )}
-          />
+          <Select
+            onValueChange={(value) => setValue("accountId", value)}
+            value={watch("accountId")}
+          >
+            <SelectTrigger className="w-full">
+              <SelectValue placeholder="Select account" />
+            </SelectTrigger>
+            <SelectContent>
+              {accounts.map((account) => (
+                <SelectItem key={account.id} value={account.id}>
+                  {account.name} (${parseFloat(account.balance).toFixed(2)})
+                </SelectItem>
+              ))}
+              <CreateAccountDrawer>
+                <Button
+                  variant="ghost"
+                  className="relative flex w-full cursor-default select-none items-center rounded-sm py-1.5 pl-8 pr-2 text-sm outline-none hover:bg-accent hover:text-accent-foreground"
+                >
+                  Create Account
+                </Button>
+              </CreateAccountDrawer>
+            </SelectContent>
+          </Select>
+          {errors.accountId && (
+            <p className="text-sm text-red-500">{errors.accountId.message}</p>
+          )}
         </div>
       </div>
 
       {/* Category */}
       <div className="space-y-2 w-full">
         <label className="text-sm font-medium">Category</label>
-        <Controller
-          name="category"
-          control={control}
-          render={({ field }) => (
-            <Select value={field.value} onValueChange={field.onChange}>
-              <SelectTrigger className="w-full">
-                <SelectValue placeholder="Select category">
-                  {
-                    categoryOptions.find((c) => c.id === watchedCategory)
-                      ?.label || "Select category"
-                  }
-                </SelectValue>
-              </SelectTrigger>
-              <SelectContent>
-                {categoryOptions.map((cat) => (
-                  <SelectItem key={cat.id} value={cat.id}>
-                    {cat.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          )}
-        />
+        <Select
+          onValueChange={(value) => setValue("category", value)}
+          value={watch("category")}
+        >
+          <SelectTrigger className="w-full">
+            <SelectValue placeholder="Select category" />
+          </SelectTrigger>
+          <SelectContent>
+            {filteredCategories.map((category) => (
+              <SelectItem key={category.id} value={category.id}>
+                {category.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        {errors.category && (
+          <p className="text-sm text-red-500">{errors.category.message}</p>
+        )}
       </div>
 
       {/* Date */}
@@ -299,28 +241,32 @@ useEffect(() => {
         <label className="text-sm font-medium">Date</label>
         <Popover>
           <PopoverTrigger asChild>
-            <Button variant="outline" className="w-full justify-between">
-              {watchedDate ? format(watchedDate, "PPP") : "Pick a date"}
-              <CalendarHeartIcon className="h-4 w-4 opacity-50" />
+            <Button
+              variant="outline"
+              className={cn(
+                "w-full pl-3 text-left font-normal",
+                !date && "text-muted-foreground"
+              )}
+            >
+              {date ? format(date, "PPP") : <span>Pick a date</span>}
+              <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
             </Button>
           </PopoverTrigger>
-          <PopoverContent className="p-0 w-full">
-            <Controller
-              name="date"
-              control={control}
-              render={({ field }) => (
-                <Calendar
-                  mode="single"
-                  selected={field.value}
-                  onSelect={field.onChange}
-                  disabled={(d) =>
-                    d > new Date() || d < new Date("1900-01-01")
-                  }
-                />
-              )}
+          <PopoverContent className="w-auto p-0" align="start">
+            <Calendar
+              mode="single"
+              selected={date}
+              onSelect={(date) => setValue("date", date)}
+              disabled={(date) =>
+                date > new Date() || date < new Date("1900-01-01")
+              }
+              initialFocus
             />
           </PopoverContent>
         </Popover>
+        {errors.date && (
+          <p className="text-sm text-red-500">{errors.date.message}</p>
+        )}
       </div>
 
       {/* Description */}
@@ -331,66 +277,76 @@ useEffect(() => {
           className="w-full"
           {...register("description")}
         />
+        {errors.description && (
+          <p className="text-sm text-red-500">{errors.description.message}</p>
+        )}
       </div>
 
-      {/* Recurring Toggle */}
-      <div className="flex items-center justify-between rounded-lg border p-3 w-full">
-        <div className="space-y-1">
-          <label className="text-sm font-medium">Recurring Transaction</label>
-          <p className="text-sm text-muted-foreground">
-            Set a recurring schedule
-          </p>
+      {/* Recurring Switch */}
+      <div className="flex flex-row items-center justify-between rounded-lg border p-4 w-full">
+        <div className="space-y-0.5">
+          <label className="text-base font-medium">Recurring Transaction</label>
+          <div className="text-sm text-muted-foreground">
+            Set up a recurring schedule for this transaction
+          </div>
         </div>
-        <Controller
-          name="isRecurring"
-          control={control}
-          render={({ field }) => (
-            <Switch checked={field.value} onCheckedChange={field.onChange} />
-          )}
+        <Switch
+          checked={isRecurring}
+          onCheckedChange={(checked) => setValue("isRecurring", checked)}
         />
       </div>
 
       {/* Recurring Interval */}
-      {watchedIsRecurring && (
+      {isRecurring && (
         <div className="space-y-2 w-full">
           <label className="text-sm font-medium">Recurring Interval</label>
-          <Controller
-            name="recurringInterval"
-            control={control}
-            render={({ field }) => (
-              <Select value={field.value} onValueChange={field.onChange}>
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Select interval" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="DAILY">Daily</SelectItem>
-                  <SelectItem value="WEEKLY">Weekly</SelectItem>
-                  <SelectItem value="MONTHLY">Monthly</SelectItem>
-                  <SelectItem value="YEARLY">Yearly</SelectItem>
-                </SelectContent>
-              </Select>
-            )}
-          />
+          <Select
+            onValueChange={(value) => setValue("recurringInterval", value)}
+            value={watch("recurringInterval")}
+          >
+            <SelectTrigger className="w-full">
+              <SelectValue placeholder="Select interval" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="DAILY">Daily</SelectItem>
+              <SelectItem value="WEEKLY">Weekly</SelectItem>
+              <SelectItem value="MONTHLY">Monthly</SelectItem>
+              <SelectItem value="YEARLY">Yearly</SelectItem>
+            </SelectContent>
+          </Select>
+          {errors.recurringInterval && (
+            <p className="text-sm text-red-500">
+              {errors.recurringInterval.message}
+            </p>
+          )}
         </div>
       )}
 
-      {/* Buttons */}
-      <div className="grid grid-cols-2 gap-4 w-full">
+      {/* Submit + Cancel */}
+      <div className="flex gap-4 w-full">
         <Button
           type="button"
           variant="outline"
-          className="w-full"
+          className="w-1/2"
           onClick={() => router.back()}
         >
           Cancel
         </Button>
-        <Button type="submit" className="w-full" disabled={loading}>
-          {loading ? (
+        <Button
+          type="submit"
+          className="w-1/2"
+          disabled={transactionLoading}
+        >
+          {transactionLoading ? (
             <>
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
               {editMode ? "Updating..." : "Creating..."}
             </>
-          ) : editMode ? "Update Transaction" : "Create Transaction"}
+          ) : editMode ? (
+            "Update Transaction"
+          ) : (
+            "Create Transaction"
+          )}
         </Button>
       </div>
     </form>

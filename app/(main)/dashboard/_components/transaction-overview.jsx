@@ -63,7 +63,7 @@ const DashboardOverview = ({ accounts, transactions }) => {
         <div className="grid gap-4 md:grid-cols-2">
             <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
-                    <CardTitle className="text-base font-normal">
+                    <CardTitle className="text-base font-bold">
                         Recent Transaction
                     </CardTitle>
                     <Select value={selectedAccountId} onValueChange={setSelectedAccountId}>

@@ -1,14 +1,28 @@
 "use client";
 
-import { useRef, useEffect } from "react";
+import { useRef, useEffect, useState } from "react";
 import { Camera, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import useFetch from "@/hooks/use-fetch";
 import { scanReceipt } from "@/actions/transaction";
 
+// Helper: Convert File to Base64 in the browser
+const fileToBase64 = (file) => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const base64String = reader.result.split(",")[1]; // remove `data:image/...;base64,`
+      resolve(base64String);
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+};
+
 export function ReceiptScanner({ onScanComplete }) {
   const fileInputRef = useRef(null);
+  const [scannedOnce, setScannedOnce] = useState(false); // 🛑 new
 
   const {
     loading: scanReceiptLoading,
@@ -24,18 +38,20 @@ export function ReceiptScanner({ onScanComplete }) {
 
     try {
       toast("Scanning receipt...");
-      await scanReceiptFn(file);
+      const base64 = await fileToBase64(file);
+      await scanReceiptFn(base64);
     } catch (err) {
+      console.error("Scan error:", err);
       toast.error("Failed to scan receipt");
-      toast.success("Receipt scanned successfully");
     }
   };
 
   useEffect(() => {
-    if (scannedData && !scanReceiptLoading && onScanComplete) {
+    if (!scannedOnce && scannedData && !scanReceiptLoading && onScanComplete) {
+      setScannedOnce(true);
       onScanComplete(scannedData);
     }
-  }, [scannedData, scanReceiptLoading, onScanComplete]);
+  }, [scannedData, scanReceiptLoading, scannedOnce, onScanComplete]);
 
   return (
     <div className="flex items-center gap-4">

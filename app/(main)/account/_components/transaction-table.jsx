@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
-import { useTransition } from "react";
 import {
   ChevronDown,
   ChevronUp,
@@ -51,7 +50,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { categoryColors } from "@/data/categories";
-import { bulkDeleteTransactions } from "@/actions/accounts"
+import { bulkDeleteTransactions } from "@/actions/account";
 import useFetch from "@/hooks/use-fetch";
 import { BarLoader } from "react-spinners";
 import { useRouter } from "next/navigation";
@@ -66,7 +65,6 @@ const RECURRING_INTERVALS = {
 };
 
 export function TransactionTable({ transactions }) {
-  const [isPending, startTransition] = useTransition();
   const [selectedIds, setSelectedIds] = useState([]);
   const [sortConfig, setSortConfig] = useState({
     field: "date",
@@ -183,7 +181,6 @@ export function TransactionTable({ transactions }) {
   useEffect(() => {
     if (deleted && !deleteLoading) {
       toast.error("Transactions deleted successfully");
-      setSelectedIds([]);
     }
   }, [deleted, deleteLoading]);
 
@@ -199,12 +196,8 @@ export function TransactionTable({ transactions }) {
     setSelectedIds([]); // Clear selections on page change
   };
 
-
   return (
     <div className="space-y-4">
-      {isPending && (
-        <BarLoader className="mt-2 w-full" color="#9333ea" />
-      )}
       {deleteLoading && (
         <BarLoader className="mt-4" width={"100%"} color="#9333ea" />
       )}
@@ -246,7 +239,7 @@ export function TransactionTable({ transactions }) {
               setCurrentPage(1);
             }}
           >
-            <SelectTrigger className="w-[155px]">
+            <SelectTrigger className="w-[130px]">
               <SelectValue placeholder="All Transactions" />
             </SelectTrigger>
             <SelectContent>
@@ -397,12 +390,9 @@ export function TransactionTable({ transactions }) {
                               className="gap-1 bg-purple-100 text-purple-700 hover:bg-purple-200"
                             >
                               <RefreshCw className="h-3 w-3" />
-                              {
-                                RECURRING_INTERVALS[
-                                transaction.RecurringInterval
-                                ]
-                              }
+                              {RECURRING_INTERVALS[transaction.recurringInterval?.toUpperCase?.()] ?? "Recurring"}
                             </Badge>
+
                           </TooltipTrigger>
                           <TooltipContent>
                             <div className="text-sm">
@@ -433,12 +423,11 @@ export function TransactionTable({ transactions }) {
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
                         <DropdownMenuItem
-                          onClick={() => {
-                            startTransition(() => {
-                              router.push(`/transaction/create?edit=${transaction.id}`);
-                            });
-                          }}
-
+                          onClick={() =>
+                            router.push(
+                              `/transaction/create?edit=${transaction.id}`
+                            )
+                          }
                         >
                           Edit
                         </DropdownMenuItem>
