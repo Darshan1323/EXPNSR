@@ -80,18 +80,25 @@ export function AddTransactionForm({
     data: transactionResult,
   } = useFetch(editMode ? updateTransaction : createTransaction);
 
-  const onSubmit = (data) => {
-    const formData = {
-      ...data,
-      amount: parseFloat(data.amount),
-    };
-
-    if (editMode) {
-      transactionFn(editId, formData);
-    } else {
-      transactionFn(formData);
-    }
+const onSubmit = (data) => {
+  const formData = {
+    ...data,
+    amount: parseFloat(data.amount),
+    recurringInterval: data.isRecurring ? data.recurringInterval || null : null,
   };
+
+  // Optional: remove empty string version to prevent backend crash
+  if (formData.recurringInterval === "") {
+    delete formData.recurringInterval;
+  }
+
+  if (editMode) {
+    transactionFn(editId, formData);
+  } else {
+    transactionFn(formData);
+  }
+};
+
 
   
 

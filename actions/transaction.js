@@ -14,17 +14,15 @@ const serializeAmount = (obj) => ({
   amount: obj.amount.toNumber(),
 });
 
-// Create Transaction
+
+
 export async function createTransaction(data) {
   try {
     const { userId } = await auth();
     if (!userId) throw new Error("Unauthorized");
 
     const req = await request();
-    const decision = await aj.protect(req, {
-      userId,
-      requested: 1,
-    });
+    const decision = await aj.protect(req, { userId, requested: 1 });
 
     if (decision.isDenied()) {
       if (decision.reason.isRateLimit()) {
@@ -43,15 +41,27 @@ export async function createTransaction(data) {
     });
     if (!user) throw new Error("User not found");
 
-    console.log("👤 Authenticated User:", user);
-
     const account = await db.account.findUnique({
       where: { id: data.accountId, userId: user.id },
     });
     if (!account) throw new Error("Account not found");
 
-    console.log("🏦 Target Account:", account);
+    // 🧹 Sanitize `recurringInterval`
+    const isRecurring = data.isRecurring === true;
+    let recurringInterval = isRecurring ? data.recurringInterval : null;
 
+    // Handle empty string edge case from scanner UI
+    if (!recurringInterval || recurringInterval === "") {
+      recurringInterval = null;
+    }
+
+    // ✅ Validate recurringInterval if it's provided
+    const validIntervals = ["DAILY", "WEEKLY", "MONTHLY", "YEARLY"];
+    if (recurringInterval && !validIntervals.includes(recurringInterval)) {
+      throw new Error("Invalid recurring interval value.");
+    }
+
+    // 💵 Duplicate detection
     const existing = await db.transaction.findFirst({
       where: {
         userId: user.id,
@@ -74,16 +84,15 @@ export async function createTransaction(data) {
     const balanceChange = data.type === "EXPENSE" ? -data.amount : data.amount;
     const newBalance = account.balance.toNumber() + balanceChange;
 
-
-
     const transaction = await db.$transaction(async (tx) => {
       const newTransaction = await tx.transaction.create({
         data: {
           ...data,
           userId: user.id,
+          recurringInterval,
           nextRecurringDate:
-            data.isRecurring && data.recurringInterval
-              ? calculateNextRecurringDate(data.date, data.recurringInterval)
+            isRecurring && recurringInterval
+              ? calculateNextRecurringDate(data.date, recurringInterval)
               : null,
         },
       });
@@ -93,24 +102,18 @@ export async function createTransaction(data) {
         data: { balance: newBalance },
       });
 
-
       return newTransaction;
     });
 
     revalidatePath("/dashboard");
     revalidatePath(`/account/${transaction.accountId}`);
 
-    const final = serializeAmount(transaction);
-
-
-    return { success: true, data: final };
+    return { success: true, data: serializeAmount(transaction) };
   } catch (error) {
     console.error("❌ createTransaction error:", error);
-    throw new Error(error.message);
+    return { success: false, error: error.message || "Unknown error" };
   }
 }
-
-
 
 export async function getTransaction(id) {
   const { userId } = await auth();
