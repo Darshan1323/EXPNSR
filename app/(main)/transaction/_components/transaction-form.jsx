@@ -93,6 +93,8 @@ export function AddTransactionForm({
     }
   };
 
+  
+
 const handleScanComplete = (scannedData) => {
   if (scannedData) {
     if (scannedData.amount) {

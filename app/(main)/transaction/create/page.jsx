@@ -1,9 +1,11 @@
+export const dynamic = "force-dynamic";
+
 import { getUserAccounts } from "@/actions/dashboard";
 import { defaultCategories } from "@/data/categories";
 import { AddTransactionForm } from "../_components/transaction-form";
 import { getTransaction } from "@/actions/transaction";
 
-export const dynamic = "force-dynamic";
+
 
 export default async function AddTransactionPage(props) {
   const searchParams = await props.searchParams;

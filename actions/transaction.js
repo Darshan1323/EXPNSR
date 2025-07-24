@@ -21,7 +21,6 @@ export async function createTransaction(data) {
     if (!userId) throw new Error("Unauthorized");
 
     const req = await request();
-
     const decision = await aj.protect(req, {
       userId,
       requested: 1,
@@ -44,10 +43,14 @@ export async function createTransaction(data) {
     });
     if (!user) throw new Error("User not found");
 
+    console.log("👤 Authenticated User:", user);
+
     const account = await db.account.findUnique({
       where: { id: data.accountId, userId: user.id },
     });
     if (!account) throw new Error("Account not found");
+
+    console.log("🏦 Target Account:", account);
 
     const existing = await db.transaction.findFirst({
       where: {
@@ -59,17 +62,19 @@ export async function createTransaction(data) {
         date: {
           gte: new Date(new Date(data.date).setHours(0, 0, 0, 0)),
           lte: new Date(new Date(data.date).setHours(23, 59, 59, 999)),
-        }
-
+        },
       },
     });
 
     if (existing) {
+      console.warn("⚠️ Duplicate transaction detected:", existing);
       throw new Error("Duplicate transaction already exists for this day.");
     }
 
     const balanceChange = data.type === "EXPENSE" ? -data.amount : data.amount;
     const newBalance = account.balance.toNumber() + balanceChange;
+
+
 
     const transaction = await db.$transaction(async (tx) => {
       const newTransaction = await tx.transaction.create({
@@ -88,17 +93,24 @@ export async function createTransaction(data) {
         data: { balance: newBalance },
       });
 
+
       return newTransaction;
     });
 
     revalidatePath("/dashboard");
     revalidatePath(`/account/${transaction.accountId}`);
 
-    return { success: true, data: serializeAmount(transaction) };
+    const final = serializeAmount(transaction);
+
+
+    return { success: true, data: final };
   } catch (error) {
+    console.error("❌ createTransaction error:", error);
     throw new Error(error.message);
   }
 }
+
+
 
 export async function getTransaction(id) {
   const { userId } = await auth();

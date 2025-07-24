@@ -8,7 +8,7 @@ import { notFound } from "next/navigation";
 import { AccountChart } from "../_components/account-chart";
 
 export default async function AccountPage({ params }) {
-  const accountId = params?.id;
+  const accountId = params.id;
 
   if (!accountId) notFound();
 
